@@ -165,49 +165,52 @@ if __name__ == "__main__":
                     rms = librosa.feature.rms(
                         y=indata, frame_length=4 * self.zc, hop_length=self.zc
                     )[:, 2:]
-                    self.rms_buffer[:] = indata[-4 * self.zc:]
-                    indata = indata[2 * self.zc - self.zc // 2:]
+                    self.rms_buffer[:] = indata[-4 * self.zc :]
+                    indata = indata[2 * self.zc - self.zc // 2 :]
                     db_threhold = (
-                            librosa.amplitude_to_db(rms, ref=1.0)[0] < self.gui_config.threhold
+                        librosa.amplitude_to_db(rms, ref=1.0)[0]
+                        < self.gui_config.threhold
                     )
                     for i in range(db_threhold.shape[0]):
                         if db_threhold[i]:
-                            indata[i * self.zc: (i + 1) * self.zc] = 0
-                    indata = indata[self.zc // 2:]
+                            indata[i * self.zc : (i + 1) * self.zc] = 0
+                    indata = indata[self.zc // 2 :]
                 self.input_wav[: -self.block_frame] = self.input_wav[
-                                                      self.block_frame:
-                                                      ].clone()
-                self.input_wav[-indata.shape[0]:] = torch.from_numpy(indata).to(
+                    self.block_frame :
+                ].clone()
+                self.input_wav[-indata.shape[0] :] = torch.from_numpy(indata).to(
                     self.config.device
                 )
                 self.input_wav_res[: -self.block_frame_16k] = self.input_wav_res[
-                                                              self.block_frame_16k:
-                                                              ].clone()
+                    self.block_frame_16k :
+                ].clone()
                 # input noise reduction and resampling
                 if self.gui_config.I_noise_reduce:
-                    self.input_wav_denoise[: -self.block_frame] = self.input_wav_denoise[
-                                                                  self.block_frame:
-                                                                  ].clone()
-                    input_wav = self.input_wav[-self.sola_buffer_frame - self.block_frame:]
+                    self.input_wav_denoise[: -self.block_frame] = (
+                        self.input_wav_denoise[self.block_frame :].clone()
+                    )
+                    input_wav = self.input_wav[
+                        -self.sola_buffer_frame - self.block_frame :
+                    ]
                     input_wav = self.tg(
                         input_wav.unsqueeze(0), self.input_wav.unsqueeze(0)
                     ).squeeze(0)
                     input_wav[: self.sola_buffer_frame] *= self.fade_in_window
                     input_wav[: self.sola_buffer_frame] += (
-                            self.nr_buffer * self.fade_out_window
+                        self.nr_buffer * self.fade_out_window
                     )
-                    self.input_wav_denoise[-self.block_frame:] = input_wav[
-                                                                 : self.block_frame
-                                                                 ]
-                    self.nr_buffer[:] = input_wav[self.block_frame:]
-                    self.input_wav_res[-self.block_frame_16k - 160:] = self.resampler(
-                        self.input_wav_denoise[-self.block_frame - 2 * self.zc:]
+                    self.input_wav_denoise[-self.block_frame :] = input_wav[
+                        : self.block_frame
+                    ]
+                    self.nr_buffer[:] = input_wav[self.block_frame :]
+                    self.input_wav_res[-self.block_frame_16k - 160 :] = self.resampler(
+                        self.input_wav_denoise[-self.block_frame - 2 * self.zc :]
                     )[160:]
                 else:
-                    self.input_wav_res[-160 * (indata.shape[0] // self.zc + 1):] = (
-                        self.resampler(self.input_wav[-indata.shape[0] - 2 * self.zc:])[
-                        160:
-                        ]
+                    self.input_wav_res[-160 * (indata.shape[0] // self.zc + 1) :] = (
+                        self.resampler(
+                            self.input_wav[-indata.shape[0] - 2 * self.zc :]
+                        )[160:]
                     )
                 # infer
                 if self.function == "vc":
@@ -221,24 +224,26 @@ if __name__ == "__main__":
                     if self.resampler2 is not None:
                         infer_wav = self.resampler2(infer_wav)
                 elif self.gui_config.I_noise_reduce:
-                    infer_wav = self.input_wav_denoise[self.extra_frame:].clone()
+                    infer_wav = self.input_wav_denoise[self.extra_frame :].clone()
                 else:
-                    infer_wav = self.input_wav[self.extra_frame:].clone()
+                    infer_wav = self.input_wav[self.extra_frame :].clone()
                 # output noise reduction
                 if self.gui_config.O_noise_reduce and self.function == "vc":
                     self.output_buffer[: -self.block_frame] = self.output_buffer[
-                                                              self.block_frame:
-                                                              ].clone()
-                    self.output_buffer[-self.block_frame:] = infer_wav[-self.block_frame:]
+                        self.block_frame :
+                    ].clone()
+                    self.output_buffer[-self.block_frame :] = infer_wav[
+                        -self.block_frame :
+                    ]
                     infer_wav = self.tg(
                         infer_wav.unsqueeze(0), self.output_buffer.unsqueeze(0)
                     ).squeeze(0)
                 # volume envelop mixing
                 if self.gui_config.rms_mix_rate < 1 and self.function == "vc":
                     if self.gui_config.I_noise_reduce:
-                        input_wav = self.input_wav_denoise[self.extra_frame:]
+                        input_wav = self.input_wav_denoise[self.extra_frame :]
                     else:
-                        input_wav = self.input_wav[self.extra_frame:]
+                        input_wav = self.input_wav[self.extra_frame :]
                     rms1 = librosa.feature.rms(
                         y=input_wav[: infer_wav.shape[0]].cpu().numpy(),
                         frame_length=4 * self.zc,
@@ -269,13 +274,15 @@ if __name__ == "__main__":
                     )
                 # SOLA algorithm from https://github.com/yxlllc/DDSP-SVC
                 conv_input = infer_wav[
-                             None, None, : self.sola_buffer_frame + self.sola_search_frame
-                             ]
+                    None, None, : self.sola_buffer_frame + self.sola_search_frame
+                ]
                 cor_nom = F.conv1d(conv_input, self.sola_buffer[None, None, :])
                 cor_den = torch.sqrt(
                     F.conv1d(
-                        conv_input ** 2,
-                        torch.ones(1, 1, self.sola_buffer_frame, device=self.config.device),
+                        conv_input**2,
+                        torch.ones(
+                            1, 1, self.sola_buffer_frame, device=self.config.device
+                        ),
                     )
                     + 1e-8
                 )
@@ -286,10 +293,13 @@ if __name__ == "__main__":
                     sola_offset = torch.argmax(cor_nom[0, 0] / cor_den[0, 0])
                 printt("sola_offset = %d", int(sola_offset))
                 infer_wav = infer_wav[sola_offset:]
-                if "privateuseone" in str(self.config.device) or not self.gui_config.use_pv:
+                if (
+                    "privateuseone" in str(self.config.device)
+                    or not self.gui_config.use_pv
+                ):
                     infer_wav[: self.sola_buffer_frame] *= self.fade_in_window
                     infer_wav[: self.sola_buffer_frame] += (
-                            self.sola_buffer * self.fade_out_window
+                        self.sola_buffer * self.fade_out_window
                     )
                 else:
                     infer_wav[: self.sola_buffer_frame] = phase_vocoder(
@@ -299,9 +309,15 @@ if __name__ == "__main__":
                         self.fade_in_window,
                     )
                 self.sola_buffer[:] = infer_wav[
-                                      self.block_frame: self.block_frame + self.sola_buffer_frame
-                                      ]
-                results = infer_wav[: self.block_frame].repeat(self.gui_config.channels, 1).t().cpu().numpy()
+                    self.block_frame : self.block_frame + self.sola_buffer_frame
+                ]
+                results = (
+                    infer_wav[: self.block_frame]
+                    .repeat(self.gui_config.channels, 1)
+                    .t()
+                    .cpu()
+                    .numpy()
+                )
 
                 total_time = time.perf_counter() - start_time
                 if flag_vc:
@@ -1001,7 +1017,7 @@ if __name__ == "__main__":
                     extra_settings = sd.WasapiSettings(exclusive=True)
                 else:
                     extra_settings = None
-                printt(f'stream self.block_frame {self.block_frame}')
+                printt(f"stream self.block_frame {self.block_frame}")
                 self.stream = sd.Stream(
                     callback=self.audio_callback,
                     blocksize=self.block_frame,
@@ -1034,7 +1050,6 @@ if __name__ == "__main__":
             self.queue_out.put(indata)
             result = self.queue_in.get()
             outdata[:] = result
-
 
         def update_devices(self, hostapi_name=None):
             """获取设备列表"""
